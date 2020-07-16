@@ -6,6 +6,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -32,6 +33,8 @@ import com.google.android.material.navigation.NavigationView;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -50,6 +53,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
     private static String CURRENT_SEX = null;
     private final String MALE = "M";
     private final String FEMALE = "F";
+    private long mLastClickTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,6 +144,11 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
             public void onClickSendBtn(String msg) {
                 String sendMessage = msg.trim();
                 if(sendMessage.length()!=0) {
+                    if (SystemClock.elapsedRealtime() - mLastClickTime < 100){
+                        showToast(MainActivity.this,"메세지의 전송 속도가 너무 빠릅니다.");
+                        return;
+                    }
+                    mLastClickTime = SystemClock.elapsedRealtime();
                     new SendMessageTask(CURRENT_SEX).execute(sendMessage);
                     addView(msg, 3);
                 }
@@ -171,7 +180,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
     private void addView(String msg, int i) {
         mWeakHandler.post(() -> {
             mBinding.lytMsgline.addView(new RandomChatLog(MainActivity.this, mBinding, msg, null, i));
-            mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN);
+            mBinding.scvMsgItem.post(()->mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
             mBinding.edtMsg.requestFocus();
         });
     }

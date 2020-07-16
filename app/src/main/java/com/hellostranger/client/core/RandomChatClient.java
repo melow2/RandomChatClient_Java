@@ -114,7 +114,7 @@ public class RandomChatClient extends SocketManager implements Runnable {
     private void addView(String msg, String client_info, int i) {
         mHandler.post(() -> {
             mBinding.lytMsgline.addView(new RandomChatLog(mContext, mBinding, msg,client_info,i));
-            mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN);
+            mBinding.scvMsgItem.post(()->mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
             mBinding.edtMsg.requestFocus();
         });
     }
