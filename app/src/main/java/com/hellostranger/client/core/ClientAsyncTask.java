@@ -1,5 +1,6 @@
 package com.hellostranger.client.core;
 
+import android.content.Context;
 import android.os.AsyncTask;
 
 import com.hellostranger.client.databinding.MainActivityBinding;

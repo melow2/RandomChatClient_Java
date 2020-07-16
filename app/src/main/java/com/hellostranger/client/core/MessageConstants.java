@@ -16,9 +16,7 @@ public abstract class MessageConstants {
     public static final String QUIT_CLIENT = "QUIT_CLIENT";
     public static final String RE_CONNECT = "RE_CONNECT";
     protected static ByteBuffer buffer = ByteBuffer.allocateDirect(2048 * 2048);
-
     public static final String MSG_CONNECT_FAIL = "현재 서버에 사용자가 많습니다.";
-    public static ByteBuffer readBuffer = ByteBuffer.allocate(2048 * 2048);
     public static Charset charset = Charset.forName("UTF-8");
     public static CharsetEncoder encoder = charset.newEncoder();
 

@@ -1,6 +1,8 @@
 package com.hellostranger.client.core;
 
+import android.content.Context;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 
 import com.hellostranger.client.databinding.MainActivityBinding;
@@ -10,6 +12,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -47,23 +50,25 @@ public class RandomChatClient extends SocketManager implements Runnable {
 
     @Override
     public void run() {
-        try {
-            while (selector.select() > 0) {
-                Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
-                while (keys.hasNext()) {
-                    SelectionKey key = keys.next();
-                    keys.remove();
-                    if (!key.isValid()) {
-                        continue;
-                    }
-                    if (key.isReadable()) {
-                        receive(key);
+       // new Thread(() -> {
+            try {
+                while (selector.select() > 0) {
+                    Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
+                    while (keys.hasNext()) {
+                        SelectionKey key = keys.next();
+                        keys.remove();
+                        if (!key.isValid()) {
+                            continue;
+                        }
+                        if (key.isReadable()) {
+                            receive(key);
+                        }
                     }
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+       // }).start();
     }
 
     // 수신시 호출 함수.
@@ -72,6 +77,7 @@ public class RandomChatClient extends SocketManager implements Runnable {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
+            ByteBuffer readBuffer = ByteBuffer.allocate(2048 * 2048);
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
@@ -86,6 +92,7 @@ public class RandomChatClient extends SocketManager implements Runnable {
             messageProcessing(channel, received);
             readBuffer.compact();
         } catch (IOException e) {
+            e.printStackTrace();
             disconnect(channel, key, remoteAddr);
         }
     }
@@ -104,9 +111,10 @@ public class RandomChatClient extends SocketManager implements Runnable {
                 addView(message,null,2);
                 break;
             case MESSAGING:
+                System.out.println(received);
                 String msg = tokenizer.nextToken();
                 String clientInfo = tokenizer.nextToken();
-                addView(msg,clientInfo,1);
+                mHandler.post(()->{addView(msg,clientInfo,1);});
                 break;
         }
     }

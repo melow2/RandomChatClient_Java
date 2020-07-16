@@ -2,7 +2,6 @@ package com.hellostranger.client.view.activity;
 
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -18,37 +17,28 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 
+import com.google.android.material.navigation.NavigationView;
 import com.hellostranger.client.BuildConfig;
 import com.hellostranger.client.MainHandler;
 import com.hellostranger.client.R;
-import com.hellostranger.client.core.ClientAsyncTask;
 import com.hellostranger.client.core.RandomChatLog;
-import com.hellostranger.client.core.RandomChatClient;
-import com.hellostranger.client.core.SocketManager;
 import com.hellostranger.client.core.WeakHandler;
 import com.hellostranger.client.databinding.MainActivityBinding;
 import com.hellostranger.client.view.dialog.CloseDialog;
 import com.hellostranger.client.view.dialog.SelectSexDialog;
-import com.google.android.material.navigation.NavigationView;
 
 import java.io.IOException;
 import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.hellostranger.client.core.SocketManager.*;
-import static com.hellostranger.client.core.MessageConstants.*;
-import static com.hellostranger.client.core.ClientAsyncTask.*;
+import static com.hellostranger.client.core.ClientAsyncTask.ReConnectTask;
+import static com.hellostranger.client.core.ClientAsyncTask.SendMessageTask;
+import static com.hellostranger.client.core.ClientAsyncTask.ServerConnectTask;
+import static com.hellostranger.client.core.SocketManager.exit;
 
 public class MainActivity extends BaseActivity<MainActivityBinding> {
 
     private WeakHandler mWeakHandler;
     private CloseDialog closeDialog;
-    private ClientAsyncTask clientAsyncTask;
-
     private static final String TAG = MainActivity.class.getSimpleName();
     private static String CURRENT_SEX = null;
     private final String MALE = "M";
@@ -128,6 +118,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
                 closeDialog.dismiss();
                 finish();
             }
+
             @Override
             public void onNegativeBtn() {
                 closeDialog.dismiss();
@@ -143,9 +134,9 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
             @Override
             public void onClickSendBtn(String msg) {
                 String sendMessage = msg.trim();
-                if(sendMessage.length()!=0) {
-                    if (SystemClock.elapsedRealtime() - mLastClickTime < 100){
-                        showToast(MainActivity.this,"메세지의 전송 속도가 너무 빠릅니다.");
+                if (sendMessage.length() != 0) {
+                    if (SystemClock.elapsedRealtime() - mLastClickTime < 300) {
+                        showToast(MainActivity.this, "메세지의 전송 속도가 너무 빠릅니다.");
                         return;
                     }
                     mLastClickTime = SystemClock.elapsedRealtime();
@@ -154,6 +145,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
                 }
                 mBinding.edtMsg.setText("");
             }
+
             @Override
             public void onClickBtnReload(String msg) {
                 reConnect(msg);
@@ -164,7 +156,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
 
 
     private void reConnect(String msg) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
         builder.setTitle(null);
         builder.setMessage(msg);
         builder.setPositiveButton("확인", (dialog, which) -> {
@@ -180,7 +172,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
     private void addView(String msg, int i) {
         mWeakHandler.post(() -> {
             mBinding.lytMsgline.addView(new RandomChatLog(MainActivity.this, mBinding, msg, null, i));
-            mBinding.scvMsgItem.post(()->mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
+            mBinding.scvMsgItem.post(() -> mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
             mBinding.edtMsg.requestFocus();
         });
     }
@@ -230,5 +222,11 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
         closeDialog.show();
     }
 
+
+    @Override
+    protected void onPause() {
+        Log.d(TAG, "***************************************************************onPause()");
+        super.onPause();
+    }
 }
 
