@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.InputFilter;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -130,10 +131,12 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
     private void init() {
         mWeakHandler = new WeakHandler(Looper.getMainLooper());
         MainHandler eventHandler = new MainHandler(this, mBinding);
+        mBinding.edtMsg.setFilters(new InputFilter[] { new InputFilter.LengthFilter(400) });
         eventHandler.addEventListener(new MainHandler.MainHandlerEvent() {
             @Override
             public void onClickSendBtn(String msg) {
                 String sendMessage = msg.trim();
+                System.out.println(sendMessage.length());
                 if (sendMessage.length() != 0) {
                     if (SystemClock.elapsedRealtime() - mLastClickTime < 300) {
                         showToast(MainActivity.this, "메세지의 전송 속도가 너무 빠릅니다.");

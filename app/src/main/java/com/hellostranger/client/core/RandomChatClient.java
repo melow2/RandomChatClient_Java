@@ -77,7 +77,7 @@ public class RandomChatClient extends SocketManager implements Runnable {
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer readBuffer = ByteBuffer.allocate(2048 * 2048);
+            ByteBuffer readBuffer = ByteBuffer.allocate(1024*10);
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
@@ -90,7 +90,6 @@ public class RandomChatClient extends SocketManager implements Runnable {
             System.arraycopy(readBuffer.array(), 0, data, 0, size);
             String received = new String(data, "UTF-8");
             messageProcessing(channel, received);
-            readBuffer.compact();
         } catch (IOException e) {
             e.printStackTrace();
             disconnect(channel, key, remoteAddr);
@@ -115,6 +114,13 @@ public class RandomChatClient extends SocketManager implements Runnable {
                 String msg = tokenizer.nextToken();
                 String clientInfo = tokenizer.nextToken();
                 mHandler.post(()->{addView(msg,clientInfo,1);});
+                while(tokenizer.hasMoreTokens()){
+                    String rProtocol = tokenizer.nextToken();
+                    String rRoomNumber = tokenizer.nextToken();
+                    String rMsg = tokenizer.nextToken();
+                    String rClientInfo = tokenizer.nextToken();
+                    mHandler.post(()->{addView(rMsg,rClientInfo,1);});
+                }
                 break;
         }
     }

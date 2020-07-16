@@ -7,6 +7,8 @@ import com.hellostranger.client.databinding.MainActivityBinding;
 import com.hellostranger.client.view.activity.MainActivity;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.Executors;
 
 import static com.hellostranger.client.core.MessageConstants.MESSAGING;
@@ -49,11 +51,11 @@ public abstract class ClientAsyncTask {
         protected Boolean doInBackground(String... msg) {
             if (!msg[0].equals("")) {
                 try {
-                    socketChannel.write(parseMessage(
-                            MESSAGING + MSG_DELIM
+                    ByteBuffer buffer = parseMessage(MESSAGING + MSG_DELIM
                                     + ROOM_NUMBER + MSG_DELIM
                                     + msg[0] + MSG_DELIM
-                                    + mCurrentSex));
+                                    + mCurrentSex);
+                    socketChannel.write(buffer);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
