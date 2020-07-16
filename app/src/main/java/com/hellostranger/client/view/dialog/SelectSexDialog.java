@@ -10,6 +10,8 @@ import androidx.annotation.NonNull;
 import com.hellostranger.client.databinding.DialogCloseBinding;
 import com.hellostranger.client.databinding.DialogSelectSexBinding;
 
+import java.io.IOException;
+
 public class SelectSexDialog extends Dialog {
 
     public static final String TAG = SelectSexDialog.class.getSimpleName();
@@ -17,8 +19,8 @@ public class SelectSexDialog extends Dialog {
     public SelectSexDialog.Event listener;
 
     public interface Event{
-        void onClickMale();
-        void onClickFemale();
+        void onClickMale() throws IOException;
+        void onClickFemale() throws IOException;
     }
 
     public void addButtonListener(SelectSexDialog.Event listener){
@@ -34,8 +36,20 @@ public class SelectSexDialog extends Dialog {
         super.onCreate(savedInstanceState);
         DialogSelectSexBinding mBinding = DialogSelectSexBinding.inflate(LayoutInflater.from(getContext()));
         setContentView(mBinding.getRoot());
-        mBinding.ivFemale.setOnClickListener(v->{ listener.onClickFemale();});
-        mBinding.ivMale.setOnClickListener(v->{ listener.onClickMale();});
+        mBinding.ivFemale.setOnClickListener(v->{
+            try {
+                listener.onClickFemale();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        mBinding.ivMale.setOnClickListener(v->{
+            try {
+                listener.onClickMale();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
 }

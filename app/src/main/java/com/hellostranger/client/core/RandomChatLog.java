@@ -16,7 +16,7 @@ import com.hellostranger.client.view.activity.MainActivity;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class ChatLog extends LinearLayout {
+public class RandomChatLog extends LinearLayout {
 
     private Context mContext;
     private String mReceivedMsg;
@@ -27,7 +27,7 @@ public class ChatLog extends LinearLayout {
     private ChatlogLeftBinding mBindingLeft;
     private ChatlogCommandBinding mBindingCommand;
 
-    private static final String TAG = ChatLog.class.getSimpleName();
+    private static final String TAG = RandomChatLog.class.getSimpleName();
 
     public static String CURRENT_LOG = "ME";
     public static String STATE_STRANGER = "STRANGER";
@@ -35,7 +35,7 @@ public class ChatLog extends LinearLayout {
     public final String MAIL = "M";
     public final String FEMAIL = "F";
 
-    public ChatLog(Context context, MainActivityBinding binding, String receivedMsg, String client_info, int i) {
+    public RandomChatLog(Context context, MainActivityBinding binding, String receivedMsg, String client_info, int i) {
         super(context);
         this.mContext = context;
         this.mBinding = binding;
@@ -81,11 +81,6 @@ public class ChatLog extends LinearLayout {
                 mBindingRight = DataBindingUtil.inflate(((MainActivity) mContext).getLayoutInflater(), R.layout.chatlog_right, this, true);
                 mBindingRight.tvMsg.setText(mReceivedMsg);
                 mBindingRight.tvTime.setText(getCurrentTime());
-                CURRENT_LOG = STATE_ME;
-                break;
-            case 4: // 상대방이 나갔을 경우
-                mBindingCommand = DataBindingUtil.inflate(((MainActivity) mContext).getLayoutInflater(), R.layout.chatlog_command, this, true);
-                mBindingCommand.tvCommand.setText(mContext.getString(R.string.msg_exit));
                 CURRENT_LOG = STATE_ME;
                 break;
         }

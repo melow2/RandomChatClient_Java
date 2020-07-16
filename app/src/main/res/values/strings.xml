@@ -4,7 +4,7 @@
     <string name="msg_server_is_busy">현재 사용자가 많아 접속이 지연되고 있습니다.\n잠시 후에 다시 이용해주세요.</string>
     <string name="msg_exit_close">%s앱을 종료하시겠습니까?</string>
     <string name="msg_no_user">대화 상대가 없습니다.</string>
-    <string name="msg_reload">낯선 사람과 연결하시겠습니까?</string>
+    <string name="msg_reload">새로운 사람과 연결하시겠습니까?</string>
     <string name="msg_connection">안녕, 낯선 사람.</string>
     <string name="msg_exit">낯선 사람이 떠났습니다.</string>
     <string name="msg_connection_error">현재 서버와 연결이 불안정합니다.\n다시 접속해주세요.</string>

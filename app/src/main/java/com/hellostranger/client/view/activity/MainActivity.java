@@ -2,6 +2,7 @@ package com.hellostranger.client.view.activity;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -19,8 +20,10 @@ import androidx.core.view.GravityCompat;
 import com.hellostranger.client.BuildConfig;
 import com.hellostranger.client.MainHandler;
 import com.hellostranger.client.R;
-import com.hellostranger.client.core.ChatClient;
-import com.hellostranger.client.core.ChatLog;
+import com.hellostranger.client.core.ClientAsyncTask;
+import com.hellostranger.client.core.RandomChatLog;
+import com.hellostranger.client.core.RandomChatClient;
+import com.hellostranger.client.core.SocketManager;
 import com.hellostranger.client.core.WeakHandler;
 import com.hellostranger.client.databinding.MainActivityBinding;
 import com.hellostranger.client.view.dialog.CloseDialog;
@@ -33,13 +36,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
+import static com.hellostranger.client.core.SocketManager.*;
+import static com.hellostranger.client.core.MessageConstants.*;
+import static com.hellostranger.client.core.ClientAsyncTask.*;
+
 public class MainActivity extends BaseActivity<MainActivityBinding> {
 
-    private ExecutorService mClientThreadPool;
-    private ThreadPoolExecutor mThreadPoolExecutor;
-    private ChatClient mChatClient = null;
     private WeakHandler mWeakHandler;
     private CloseDialog closeDialog;
+    private ClientAsyncTask clientAsyncTask;
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static String CURRENT_SEX = null;
@@ -88,20 +93,21 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
 
         selectSexDialog.addButtonListener(new SelectSexDialog.Event() {
             @Override
-            public void onClickMale() {
+            public void onClickMale() throws IOException {
                 CURRENT_SEX = MALE;
                 mBinding.scvMsgItem.setBackgroundColor(getResources().getColor(R.color.colorSkyBlue));
-                connect(MALE);
+                new ServerConnectTask(MainActivity.this,mBinding,CURRENT_SEX).execute();
                 selectSexDialog.dismiss();
             }
 
             @Override
-            public void onClickFemale() {
+            public void onClickFemale() throws IOException {
                 CURRENT_SEX = FEMALE;
-                connect(FEMALE);
+                new ServerConnectTask(MainActivity.this,mBinding,CURRENT_SEX).execute();
                 selectSexDialog.dismiss();
             }
         });
+
         selectSexDialog.setCancelable(false);
         selectSexDialog.show();
     }
@@ -118,7 +124,6 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
                 closeDialog.dismiss();
                 finish();
             }
-
             @Override
             public void onNegativeBtn() {
                 closeDialog.dismiss();
@@ -133,65 +138,43 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
         eventHandler.addEventListener(new MainHandler.MainHandlerEvent() {
             @Override
             public void onClickSendBtn(String msg) {
-                mThreadPoolExecutor.execute(() -> {
-                    try {
-                        String sendMsg = msg.trim();
-                        if (!sendMsg.equals("")) {
-                            mChatClient.mDos.writeUTF(msg);
-                            addView(msg, 3);
-                        }
-                        mWeakHandler.post(() -> {
-                            mBinding.edtMsg.setText("");
-                        });
-                    } catch (IOException e) {
-                        mWeakHandler.post(() -> {
-                            showToast(getApplicationContext(), "낯선사람이 떠났습니다.");
-                        });
-                    }
-                });
+                String sendMessage = msg.trim();
+                if(sendMessage.length()!=0) {
+                    new SendMessageTask(CURRENT_SEX).execute(sendMessage);
+                    addView(msg, 3);
+                }
+                mBinding.edtMsg.setText("");
             }
-
             @Override
             public void onClickBtnReload(String msg) {
-                reload(msg);
+                reConnect(msg);
             }
         });
         mBinding.setHandler(eventHandler);
     }
 
 
-    private void reload(String msg) {
+    private void reConnect(String msg) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(null);
-        builder.setMessage(getString(R.string.msg_reload));
+        builder.setMessage(msg);
         builder.setPositiveButton("확인", (dialog, which) -> {
             mBinding.lytMsgline.removeAllViews();
-            mChatClient.disconnect();
-            mClientThreadPool.shutdownNow();
-            mThreadPoolExecutor.shutdownNow();
-            // mWeakHandler.postDelayed(this::connect,500);
-            connect(CURRENT_SEX);
+            new ReConnectTask().execute();
         });
         builder.setCancelable(true);
         builder.create();
         builder.show();
     }
 
-    private void connect(String sex) {
-        mClientThreadPool = Executors.newFixedThreadPool(5);
-        mThreadPoolExecutor = (ThreadPoolExecutor) mClientThreadPool;
-        mChatClient = new ChatClient(this, mBinding, CURRENT_SEX);
-        mThreadPoolExecutor.execute(mChatClient);
-    }
 
     private void addView(String msg, int i) {
         mWeakHandler.post(() -> {
-            mBinding.lytMsgline.addView(new ChatLog(MainActivity.this, mBinding, msg, null, i));
-            mBinding.scvMsgItem.post(() -> mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
-            mBinding.edtMsg.post(() -> mBinding.edtMsg.requestFocus());
+            mBinding.lytMsgline.addView(new RandomChatLog(MainActivity.this, mBinding, msg, null, i));
+            mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN);
+            mBinding.edtMsg.requestFocus();
         });
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -215,6 +198,7 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
                     Log.d(TAG, "title: " + title);
                     Log.d(TAG, "content: " + content);
                 }
+
                 Intent intent = new Intent(Intent.ACTION_SEND) // 공유하기.
                         .setType("text/plain")
                         .putExtra(Intent.EXTRA_SUBJECT, getString(getApplicationInfo().labelRes))
@@ -228,24 +212,14 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
 
     @Override
     protected void onDestroy() {
-        // 제대로 실행이 되지 않음.
         super.onDestroy();
-        Log.d(TAG, "onDestroy()");
-        if (mChatClient != null) {
-            mChatClient.disconnect();
-            Log.d(TAG, "disconnect()");
-/*            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                // 앱이 먼저 종료됨.
-                mClientThreadPool.shutdownNow();
-                mThreadPoolExecutor.shutdownNow();
-                Log.d(TAG,"ShutDown hook");
-            }));*/
-        }
+        exit();
     }
 
     @Override
     public void onBackPressed() {
         closeDialog.show();
     }
+
 }
 
