@@ -1,52 +1,53 @@
 package com.hellostranger.client.core;
 
-import android.content.Context;
 import android.os.AsyncTask;
+import android.os.Looper;
+import android.view.View;
 
 import com.hellostranger.client.databinding.MainActivityBinding;
 import com.hellostranger.client.view.activity.MainActivity;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.hellostranger.client.core.MessageConstants.MESSAGING;
 import static com.hellostranger.client.core.MessageConstants.MSG_DELIM;
+import static com.hellostranger.client.core.MessageConstants.MSG_REQUIRE_RECONNECT;
 import static com.hellostranger.client.core.MessageConstants.RE_CONNECT;
 import static com.hellostranger.client.core.MessageConstants.parseMessage;
 import static com.hellostranger.client.core.SocketManager.ROOM_NUMBER;
+import static com.hellostranger.client.core.SocketManager.exit;
+import static com.hellostranger.client.core.SocketManager.selector;
 import static com.hellostranger.client.core.SocketManager.socketChannel;
 
 public abstract class ClientAsyncTask {
 
+    private static MainActivity _mContext;
+    private static MainActivityBinding _mBinding;
+    private static String _mCurrentSex;
+    private static WeakHandler _weakHandler;
+
     public static class ServerConnectTask extends AsyncTask<Void, Void, Boolean> {
-        private RandomChatClient mChatClient;
-        private MainActivity mContext;
-        private MainActivityBinding mBinding;
-        private String mCurrentSex;
 
         public ServerConnectTask(MainActivity mainActivity, MainActivityBinding binding, String currentSex) {
-            this.mContext = mainActivity;
-            this.mBinding = binding;
-            this.mCurrentSex = currentSex;
+            _mContext = mainActivity;
+            _mBinding = binding;
+            _mCurrentSex = currentSex;
+            _weakHandler = new WeakHandler(Looper.getMainLooper());
         }
 
         @Override
         protected Boolean doInBackground(Void... sexes) {
-            mChatClient = new RandomChatClient(mContext, mBinding, mCurrentSex);
-            Executors.newSingleThreadExecutor().execute(mChatClient);
+            ExecutorService executorService = Executors.newSingleThreadExecutor();
+            RandomChatClient _mChatClient = new RandomChatClient(_mContext, _mBinding, _mCurrentSex);
+            executorService.execute(_mChatClient);
             return true;
         }
     }
 
     public static class SendMessageTask extends AsyncTask<String, Void, Boolean> {
-        private String mCurrentSex = "";
-
-        public SendMessageTask(String currentSex) {
-            mCurrentSex = currentSex;
-        }
-
         @Override
         protected Boolean doInBackground(String... msg) {
             if (!msg[0].equals("")) {
@@ -54,13 +55,20 @@ public abstract class ClientAsyncTask {
                     ByteBuffer buffer = parseMessage(MESSAGING + MSG_DELIM
                                     + ROOM_NUMBER + MSG_DELIM
                                     + msg[0] + MSG_DELIM
-                                    + mCurrentSex);
+                                    + _mCurrentSex);
                     socketChannel.write(buffer);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    addView(MSG_REQUIRE_RECONNECT,2);
                 }
             }
             return true;
+        }
+        private void addView(String msg, int i) {
+            _weakHandler.post(() -> {
+                _mBinding.lytMsgline.addView(new RandomChatLog(_mContext, _mBinding, msg, null, i));
+                _mBinding.scvMsgItem.post(() -> _mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
+                _mBinding.edtMsg.requestFocus();
+            });
         }
     }
 
@@ -68,12 +76,21 @@ public abstract class ClientAsyncTask {
         @Override
         protected Boolean doInBackground(Void... voids) {
             try {
-                socketChannel.write(parseMessage(RE_CONNECT + MSG_DELIM
-                        + ROOM_NUMBER + MSG_DELIM + "RE_CONNECT"));
+                socketChannel.write(parseMessage(RE_CONNECT + MSG_DELIM + ROOM_NUMBER + MSG_DELIM + "RE_CONNECT"));
             } catch (IOException e) {
-                e.printStackTrace();
+                exit();
+                addView(MSG_REQUIRE_RECONNECT,2);
             }
             return true;
         }
+        private void addView(String msg, int i) {
+            _weakHandler.post(() -> {
+                _mBinding.lytMsgline.addView(new RandomChatLog(_mContext, _mBinding, msg, null, i));
+                _mBinding.scvMsgItem.post(() -> _mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
+                _mBinding.edtMsg.requestFocus();
+            });
+        }
     }
+
+
 }

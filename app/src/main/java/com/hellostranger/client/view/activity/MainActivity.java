@@ -27,6 +27,11 @@ import com.hellostranger.client.core.WeakHandler;
 import com.hellostranger.client.databinding.MainActivityBinding;
 import com.hellostranger.client.view.dialog.CloseDialog;
 import com.hellostranger.client.view.dialog.SelectSexDialog;
+import com.hyeoksin.admanager.AdManager;
+import com.hyeoksin.admanager.OnInterstitialAdLoadListener;
+import com.hyeoksin.admanager.data.Ad;
+import com.hyeoksin.admanager.data.AdName;
+import com.hyeoksin.admanager.data.AdType;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -38,13 +43,14 @@ import static com.hellostranger.client.core.SocketManager.exit;
 
 public class MainActivity extends BaseActivity<MainActivityBinding> {
 
-    private WeakHandler mWeakHandler;
     private CloseDialog closeDialog;
+    private WeakHandler mWeakHandler;
     private static final String TAG = MainActivity.class.getSimpleName();
     private static String CURRENT_SEX = null;
     private final String MALE = "M";
     private final String FEMALE = "F";
     private long mLastClickTime = 0;
+    private AdManager Interstitial, bottom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,9 +60,32 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeAsUpIndicator(R.drawable.menu);
         setNavigation();
-        setPopupAd();
+        setAdvertisement();
         setPopupSex();
         init();
+    }
+
+    private void setAdvertisement() {
+        Interstitial = new AdManager.Builder(MainActivity.this)
+                .setAd(new Ad(AdName.ADMOB, AdType.INTERSTITIAL, getString(R.string.admob_interstitial)))
+                .setOnInterstitialAdLoadListener(new OnInterstitialAdLoadListener() {
+                    @Override
+                    public void onAdLoaded() {
+                        Interstitial.showInterstitial();
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad() {
+                    }
+                })
+                .build();
+        bottom = new AdManager.Builder(MainActivity.this)
+                .setContainer(mBinding.adContainer)
+                .setAd(new Ad(AdName.ADMOB, AdType.BANNER, getString(R.string.admob_banner_bottom)))
+                .build();
+        Interstitial.load();
+        bottom.load();
+        setPopupAd();
     }
 
     private void setNavigation() {
@@ -91,14 +120,14 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
             public void onClickMale() throws IOException {
                 CURRENT_SEX = MALE;
                 mBinding.scvMsgItem.setBackgroundColor(getResources().getColor(R.color.colorSkyBlue));
-                new ServerConnectTask(MainActivity.this,mBinding,CURRENT_SEX).execute();
+                new ServerConnectTask(MainActivity.this, mBinding, CURRENT_SEX).execute();
                 selectSexDialog.dismiss();
             }
 
             @Override
             public void onClickFemale() throws IOException {
                 CURRENT_SEX = FEMALE;
-                new ServerConnectTask(MainActivity.this,mBinding,CURRENT_SEX).execute();
+                new ServerConnectTask(MainActivity.this, mBinding, CURRENT_SEX).execute();
                 selectSexDialog.dismiss();
             }
         });
@@ -131,19 +160,19 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
     private void init() {
         mWeakHandler = new WeakHandler(Looper.getMainLooper());
         MainHandler eventHandler = new MainHandler(this, mBinding);
-        mBinding.edtMsg.setFilters(new InputFilter[] { new InputFilter.LengthFilter(400) });
+        mBinding.edtMsg.setFilters(new InputFilter[]{new InputFilter.LengthFilter(400)});
         eventHandler.addEventListener(new MainHandler.MainHandlerEvent() {
             @Override
             public void onClickSendBtn(String msg) {
                 String sendMessage = msg.trim();
                 System.out.println(sendMessage.length());
                 if (sendMessage.length() != 0) {
-                    if (SystemClock.elapsedRealtime() - mLastClickTime < 300) {
-                        showToast(MainActivity.this, "메세지의 전송 속도가 너무 빠릅니다.");
+                    if (SystemClock.elapsedRealtime() - mLastClickTime < 200) {
+                        showToast(MainActivity.this, "천천히");
                         return;
                     }
                     mLastClickTime = SystemClock.elapsedRealtime();
-                    new SendMessageTask(CURRENT_SEX).execute(sendMessage);
+                    new SendMessageTask().execute(sendMessage);
                     addView(msg, 3);
                 }
                 mBinding.edtMsg.setText("");
@@ -225,11 +254,5 @@ public class MainActivity extends BaseActivity<MainActivityBinding> {
         closeDialog.show();
     }
 
-
-    @Override
-    protected void onPause() {
-        Log.d(TAG, "***************************************************************onPause()");
-        super.onPause();
-    }
 }
 

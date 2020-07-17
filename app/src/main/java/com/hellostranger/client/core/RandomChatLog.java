@@ -46,7 +46,6 @@ public class RandomChatLog extends LinearLayout {
     }
 
     private void writeLog() {
-
         switch (mDirection) {
             case 1: // 상대방이 메시지를 보냈을 경우.
                 mBindingLeft = DataBindingUtil.inflate(((MainActivity) mContext).getLayoutInflater(), R.layout.chatlog_left, this, true);

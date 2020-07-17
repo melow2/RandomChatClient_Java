@@ -1,11 +1,10 @@
 package com.hellostranger.client.core;
 
-import android.content.Context;
 import android.os.Looper;
-import android.util.Log;
 import android.view.View;
 
 import com.hellostranger.client.databinding.MainActivityBinding;
+import com.hellostranger.client.util.AES256Util;
 import com.hellostranger.client.view.activity.MainActivity;
 
 import java.io.IOException;
@@ -29,29 +28,27 @@ public class RandomChatClient extends SocketManager implements Runnable {
     private MainActivityBinding mBinding;
     private String mSex = "";
 
-    public RandomChatClient(MainActivity mainActivity, MainActivityBinding binding, String sex){
+    public RandomChatClient(MainActivity mainActivity, MainActivityBinding binding, String sex) {
         this.mContext = mainActivity;
         this.mBinding = binding;
         this.mSex = sex;
         mHandler = new WeakHandler(Looper.getMainLooper());
         try {
-            connectAddress = new InetSocketAddress(IP, PORT);
+            connectAddress = new InetSocketAddress(AES256Util.decryption(IP),Integer.parseInt(AES256Util.decryption(PORT)));
             selector = Selector.open();
             socketChannel = SocketChannel.open(connectAddress);
             socketChannel.configureBlocking(false);
             socketChannel.register(selector, SelectionKey.OP_READ, new StringBuffer());
             socketChannel.write(encoder.encode(CharBuffer.wrap(REQUIRE_ACCESS + MSG_DELIM + sex)));
-        }catch (Exception e){
-            e.printStackTrace();
-            mBinding.edtMsg.setEnabled(false);
-            addView(MSG_CONNECT_FAIL,null,2);
+        } catch (Exception e) {
+            addView(MSG_CONNECT_FAIL, null, 2);
         }
     }
 
     @Override
     public void run() {
-       // new Thread(() -> {
-            try {
+        try {
+            if(selector!=null) {
                 while (selector.select() > 0) {
                     Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
                     while (keys.hasNext()) {
@@ -65,19 +62,21 @@ public class RandomChatClient extends SocketManager implements Runnable {
                         }
                     }
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
+            }else{
+                addView(MSG_CONNECT_FAIL,null,2);
             }
-       // }).start();
+        } catch (IOException e) {
+
+        }
     }
 
     // 수신시 호출 함수.
-    protected void receive(SelectionKey key) throws IOException {
+    protected void receive(SelectionKey key){
         SocketChannel channel = (SocketChannel) key.channel();
         Socket socket = channel.socket();
         SocketAddress remoteAddr = socket.getRemoteSocketAddress();
         try {
-            ByteBuffer readBuffer = ByteBuffer.allocate(1024*10);
+            ByteBuffer readBuffer = ByteBuffer.allocate(1024 * 100);
             readBuffer.clear();
             channel.configureBlocking(false); // 채널은 블록킹 상태이기 때문에 논블럭킹 설정.
             int size = channel.read(readBuffer);
@@ -89,46 +88,54 @@ public class RandomChatClient extends SocketManager implements Runnable {
             byte[] data = new byte[size];
             System.arraycopy(readBuffer.array(), 0, data, 0, size);
             String received = new String(data, "UTF-8");
-            messageProcessing(channel, received);
+            messageProcessing(channel,key,received);
         } catch (IOException e) {
-            e.printStackTrace();
             disconnect(channel, key, remoteAddr);
+            addView(MSG_REQUIRE_RECONNECT,null,2);
         }
     }
 
-    protected void messageProcessing(SocketChannel channel, String received) {
-        StringTokenizer tokenizer = new StringTokenizer(received, MSG_DELIM);
-        String protocol = tokenizer.nextToken();
-        ROOM_NUMBER = tokenizer.nextToken();
-        String message = "";
-        switch (protocol) {
-            case CONNECTION: // 접속 시
-            case NEW_CLIENT: // 상대방을 만났을 경우
-            case QUIT_CLIENT: // 나갔을 경우
-            case RE_CONNECT:
-                message = tokenizer.nextToken();
-                addView(message,null,2);
-                break;
-            case MESSAGING:
-                System.out.println(received);
-                String msg = tokenizer.nextToken();
-                String clientInfo = tokenizer.nextToken();
-                mHandler.post(()->{addView(msg,clientInfo,1);});
-                while(tokenizer.hasMoreTokens()){
-                    String rProtocol = tokenizer.nextToken();
-                    String rRoomNumber = tokenizer.nextToken();
-                    String rMsg = tokenizer.nextToken();
-                    String rClientInfo = tokenizer.nextToken();
-                    mHandler.post(()->{addView(rMsg,rClientInfo,1);});
-                }
-                break;
+    protected void messageProcessing(SocketChannel channel, SelectionKey key, String received) {
+        try {
+            StringTokenizer tokenizer = new StringTokenizer(received, MSG_DELIM);
+            String protocol = tokenizer.nextToken();
+            ROOM_NUMBER = tokenizer.nextToken();
+            String message = "";
+            switch (protocol) {
+                case CONNECTION: // 접속 시
+                case NEW_CLIENT: // 상대방을 만났을 경우
+                case QUIT_CLIENT: // 나갔을 경우
+                case RE_CONNECT:
+                    message = tokenizer.nextToken();
+                    addView(message, null, 2);
+                    break;
+                case MESSAGING:
+                    String msg = tokenizer.nextToken();
+                    String clientInfo = tokenizer.nextToken();
+                    mHandler.post(() -> {
+                        addView(msg, clientInfo, 1);
+                    });
+                    while (tokenizer.hasMoreTokens()) {
+                        String rProtocol = tokenizer.nextToken();
+                        String rRoomNumber = tokenizer.nextToken();
+                        String rMsg = tokenizer.nextToken();
+                        String rClientInfo = tokenizer.nextToken();
+                        mHandler.post(() -> {
+                            addView(rMsg, rClientInfo, 1);
+                        });
+                    }
+                    break;
+            }
+        }catch (Exception e){
+            disconnect(channel,key,channel.socket().getLocalSocketAddress());
+            addView(MSG_REQUIRE_RECONNECT,null,2);
         }
     }
 
     private void addView(String msg, String client_info, int i) {
         mHandler.post(() -> {
-            mBinding.lytMsgline.addView(new RandomChatLog(mContext, mBinding, msg,client_info,i));
-            mBinding.scvMsgItem.post(()->mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
+            mBinding.lytMsgline.addView(new RandomChatLog(mContext, mBinding, msg, client_info, i));
+            mBinding.scvMsgItem.post(() -> mBinding.scvMsgItem.fullScroll(View.FOCUS_DOWN));
             mBinding.edtMsg.requestFocus();
         });
     }
